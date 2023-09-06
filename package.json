@@ -2,13 +2,15 @@
   "name": "gpt4-vscode-plugin",
   "version": "1.0.0",
   "description": "Interacts with OpenAI GPT-4 and writes code directly in VSCode",
-  "main": "extension.ts",
+  "main": "out/extension.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack"
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/pierorassu/gpt4-vscode-plugin.git"
+    "url": "git@github.com:pierorassu/gpt4-vscode-plugin.git"
   },
   "keywords": [
     "openai",
@@ -24,8 +26,21 @@
     "url": "https://github.com/pierorassu/gpt4-vscode-plugin/issues"
   },
   "homepage": "https://github.com/pierorassu/gpt4-vscode-plugin#readme",
+  "dependencies": {
+    "openai": "^4.4.0"
+  },
   "devDependencies": {
-    "typescript": "^5.2.2",
-    "vscode": "^1.1.37"
-  }
+    "@types/node": "latest",
+    "ts-loader": "^9.4.4",
+    "typescript": "latest",
+    "vscode": "latest",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  },
+  "engines": {
+    "vscode": "^1.81.0"
+  },
+  "activationEvents": [
+    "onCommand:extension.openGGVSCodeChat"
+  ]
 }

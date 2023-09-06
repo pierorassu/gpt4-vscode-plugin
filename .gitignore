@@ -1,0 +1,19 @@
+# Ignore Node.js build artifacts and dependencies
+node_modules/
+out/
+dist/
+*.log
+
+# Ignore TypeScript source maps
+*.js.map
+
+# Ignore the VSCode extension package file
+*.vsix
+
+# Ignore npm package manager lock file
+package-lock.json
+
+# Ignore any OS or editor-specific files
+.vscode/
+.DS_Store
+Thumbs.db
