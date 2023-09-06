@@ -1,5 +1,7 @@
 # Ignore Node.js build artifacts and dependencies
+node_modules
 node_modules/
+node_modules/*
 out/
 dist/
 *.log

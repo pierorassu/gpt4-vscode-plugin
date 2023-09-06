@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as openai from 'openai';
 
-function clearActiveWindow(editor: vscode.TextEditor | undefined) {
+export function clearActiveWindow(editor: vscode.TextEditor | undefined) {
     if (editor) {
         const document = editor.document;
         const lastLine = document.lineAt(document.lineCount - 1);

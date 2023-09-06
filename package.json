@@ -1,16 +1,70 @@
 {
   "name": "gpt4-vscode-plugin",
+  "displayName": "GPT-4 VSCode Plugin",
   "version": "1.0.0",
   "description": "Interacts with OpenAI GPT-4 and writes code directly in VSCode",
-  "main": "out/extension.js",
-  "scripts": {
-    "compile": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack"
+  "publisher": "pierorassu",
+  "engines": {
+    "vscode": "^1.81.0"
   },
+  "categories": ["Programming Languages"],
   "repository": {
     "type": "git",
     "url": "git@github.com:pierorassu/gpt4-vscode-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pierorassu/gpt4-vscode-plugin/issues"
+  },
+  "homepage": "https://github.com/pierorassu/gpt4-vscode-plugin#readme",
+  "scripts": {
+    "compile": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "vscode:prepublish": "npm run compile",
+    "build": "webpack"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "@types/node": "latest",
+    "ts-loader": "^9.4.4",
+    "ts-node": "^10.9.1",
+    "vscode": "latest",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "openai": "^4.4.0"
+  },
+  "activationEvents": [
+    "onCommand:extension.openGGVSCodeChat"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.openGGVSCodeChat",
+        "title": "Open GPT-4 Chat"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "GGVscode Chat Configuration",
+      "properties": {
+        "gpt4VSCodePlugin.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key"
+        }
+      }
+    },    
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection",
+          "command": "extension.openGGVSCodeChat",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "keywords": [
     "openai",
@@ -20,27 +74,5 @@
     "vscode",
     "visual-studio-code"
   ],
-  "author": "Piero Rassu",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/pierorassu/gpt4-vscode-plugin/issues"
-  },
-  "homepage": "https://github.com/pierorassu/gpt4-vscode-plugin#readme",
-  "dependencies": {
-    "openai": "^4.4.0"
-  },
-  "devDependencies": {
-    "@types/node": "latest",
-    "ts-loader": "^9.4.4",
-    "typescript": "latest",
-    "vscode": "latest",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
-  },
-  "engines": {
-    "vscode": "^1.81.0"
-  },
-  "activationEvents": [
-    "onCommand:extension.openGGVSCodeChat"
-  ]
+  "license": "MIT"
 }
