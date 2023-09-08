@@ -1,7 +1,7 @@
 {
   "name": "gpt4-vscode-plugin",
   "displayName": "GPT-4 VSCode Plugin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Interacts with OpenAI GPT-4 and writes code directly in VSCode",
   "publisher": "pierorassu",
   "engines": {
