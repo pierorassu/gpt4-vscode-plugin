@@ -35,25 +35,26 @@ async function insertLines(editor: vscode.TextEditor | undefined, lines: string[
     await insertLines(editor, lines, index + 1);
 }
 
-function getUserInput(): Promise<{ command: string, freeText: string }> {
-    return new Promise(async (resolve) => {
-        const input = await vscode.window.showInputBox({
-            prompt: 'Enter your question (optional command followed by free text; syntax is COMMAND | question or just the question)',
-            value: '',
-            validateInput: (input) => {
-                const parts = input.split('|').map((part) => part.trim()); 
-                const command = parts.length > 1 ? parts[0].trim() : '';
-                const freeText = parts.length > 1 ? parts.slice(1).join('|') : input.trim();
-
-                if (command && !["edit", "new"].includes(command.toLowerCase())) {
-                    return 'Invalid command. Please use "edit" or "new" as the command.';
-                }
-
-                resolve({ command, freeText });
-                return null;
-            },
-        });
+async function getUserInput(): Promise<{ command: string, freeText: string }> {
+    const input = await vscode.window.showInputBox({
+        prompt: 'Enter your question (optional command followed by free text; syntax is COMMAND | question or just the question)',
+        value: '',
     });
+
+    if (!input) {
+        return { command: '', freeText: '' }; // Return empty values if input is not provided
+    }
+
+    const parts = input.split('|').map((part) => part.trim());
+    const command = parts.length > 1 ? parts[0].trim() : '';
+    const freeText = parts.length > 1 ? parts.slice(1).join('|') : input.trim();
+
+    if (command && !["edit", "new"].includes(command.toLowerCase())) {
+        vscode.window.showErrorMessage('Invalid command. Please use "edit" or "new" as the command.');
+        return getUserInput(); // Recursively call getUserInput to prompt again
+    }
+
+    return { command, freeText };
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -71,18 +72,11 @@ export function activate(context: vscode.ExtensionContext) {
 
         const userInput = await getUserInput();
         const command = userInput.command;
-        const freeText = userInput.freeText;
+        const prompt = userInput.freeText;
 
         const outputChannel = vscode.window.createOutputChannel('GGVscode Output');
         // Clear the output channel
         outputChannel.clear();
-
-        // Check if the command is not passed or equal to "new"
-        if (!command || command.toLowerCase() === "new") {
-            // Create a new untitled text document
-            const untitledDocument = await vscode.workspace.openTextDocument({ content: freeText });
-            await vscode.window.showTextDocument(untitledDocument);
-        }        
 
         // Grab the editor active window
         const editor = vscode.window.activeTextEditor;
@@ -91,7 +85,22 @@ export function activate(context: vscode.ExtensionContext) {
         if (editor) {
             currentSourceCodeOnActiveWindow = editor.document.getText();
         }        
-        clearActiveWindow(editor);        
+
+        let updatedEditor = null; // Declare 'updatedEditor' with an initial value of null
+
+        // Check if the command is not passed or equal to "new"
+        if (!command || command.toLowerCase() === "new") {
+            // Create a new untitled text document
+            const untitledDocument = await vscode.workspace.openTextDocument({ content: '' });
+            await vscode.window.showTextDocument(untitledDocument);
+
+            // Get the updated active editor
+            updatedEditor = vscode.window.activeTextEditor; // Update 'updatedEditor' with the new editor
+        } else {            
+            clearActiveWindow(editor);   
+            // Get the updated active editor
+            updatedEditor = vscode.window.activeTextEditor; // Update 'updatedEditor' with the new editor
+        }
 
         const system = `
         You are a senior Software Engineer and Software developer who has mastered Java, Rust, Python, Go, and Javascript.
@@ -108,7 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         const post_prompt = `do not use Markdown syntax and do not use Markdown Syntax Highlighting like ${syntax_to_avoid}; answer must contain only source code; your answer cannot contain explanations of any sorts; always provide full source code and not just snippets`
 
-        let fullPrompt = `Initial context: ${prep_prompt}\nInstructions on your answer: ${post_prompt}\nThe question is: ${userInput}`
+        let fullPrompt = `Initial context: ${prep_prompt}\nInstructions on your answer: ${post_prompt}\nThe question is: ${prompt}`
         outputChannel.append("#####################");
         outputChannel.append('\n');
         outputChannel.append(`Full prompt: ${fullPrompt}`);
@@ -125,7 +134,7 @@ export function activate(context: vscode.ExtensionContext) {
                 { role: 'user', content: fullPrompt },
             ],
             stream: false,
-            temperature: 1,
+            temperature: 0.01,
             max_tokens: 4096,
             top_p: 1,
             frequency_penalty: 0,
@@ -150,7 +159,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (vscode.window.activeTextEditor) {        
             // Send new lines one by one to the active window
-            insertLines(editor, gpt_content_by_lines, 0);
+            insertLines(updatedEditor, gpt_content_by_lines, 0);
         }                
         
     });
