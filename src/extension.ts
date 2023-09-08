@@ -35,6 +35,27 @@ async function insertLines(editor: vscode.TextEditor | undefined, lines: string[
     await insertLines(editor, lines, index + 1);
 }
 
+function getUserInput(): Promise<{ command: string, freeText: string }> {
+    return new Promise(async (resolve) => {
+        const input = await vscode.window.showInputBox({
+            prompt: 'Enter your question (optional command followed by free text; syntax is COMMAND | question or just the question)',
+            value: '',
+            validateInput: (input) => {
+                const parts = input.split('|').map((part) => part.trim()); 
+                const command = parts.length > 1 ? parts[0].trim() : '';
+                const freeText = parts.length > 1 ? parts.slice(1).join('|') : input.trim();
+
+                if (command && !["edit", "new"].includes(command.toLowerCase())) {
+                    return 'Invalid command. Please use "edit" or "new" as the command.';
+                }
+
+                resolve({ command, freeText });
+                return null;
+            },
+        });
+    });
+}
+
 export function activate(context: vscode.ExtensionContext) {
 
     let disposable = vscode.commands.registerCommand('extension.openGGVSCodeChat', async () => {
@@ -48,14 +69,20 @@ export function activate(context: vscode.ExtensionContext) {
 
         const openaiInstance = new openai.OpenAI({ apiKey });
 
-        const prompt = await vscode.window.showInputBox({ prompt: 'Enter your coding question' });
-        if (!prompt) {
-            return;
-        }
+        const userInput = await getUserInput();
+        const command = userInput.command;
+        const freeText = userInput.freeText;
 
         const outputChannel = vscode.window.createOutputChannel('GGVscode Output');
         // Clear the output channel
         outputChannel.clear();
+
+        // Check if the command is not passed or equal to "new"
+        if (!command || command.toLowerCase() === "new") {
+            // Create a new untitled text document
+            const untitledDocument = await vscode.workspace.openTextDocument({ content: freeText });
+            await vscode.window.showTextDocument(untitledDocument);
+        }        
 
         // Grab the editor active window
         const editor = vscode.window.activeTextEditor;
@@ -81,7 +108,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         const post_prompt = `do not use Markdown syntax and do not use Markdown Syntax Highlighting like ${syntax_to_avoid}; answer must contain only source code; your answer cannot contain explanations of any sorts; always provide full source code and not just snippets`
 
-        let fullPrompt = `Initial context: ${prep_prompt}\nInstructions on your answer: ${post_prompt}\nThe question is: ${prompt}`
+        let fullPrompt = `Initial context: ${prep_prompt}\nInstructions on your answer: ${post_prompt}\nThe question is: ${userInput}`
         outputChannel.append("#####################");
         outputChannel.append('\n');
         outputChannel.append(`Full prompt: ${fullPrompt}`);
