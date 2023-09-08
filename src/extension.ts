@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as openai from 'openai';
+import * as fs from 'fs';
 
 export function clearActiveWindow(editor: vscode.TextEditor | undefined) {
     if (editor) {
@@ -35,26 +36,52 @@ async function insertLines(editor: vscode.TextEditor | undefined, lines: string[
     await insertLines(editor, lines, index + 1);
 }
 
-async function getUserInput(): Promise<{ command: string, freeText: string }> {
+async function getUserInput(): Promise<{ command: string, fileName: string, prompt: string }> {
     const input = await vscode.window.showInputBox({
-        prompt: 'Enter your question (optional command followed by free text; syntax is COMMAND | question or just the question)',
+        prompt: 'Enter your question (optional command, filename, and free text; syntax is COMMAND|FILENAME|FREE_TEXT, COMMAND|FREE_TEXT, FILENAME|FREE_TEXT, or just FREE_TEXT)',
         value: '',
     });
 
     if (!input) {
-        return { command: '', freeText: '' }; // Return empty values if input is not provided
+        return { command: '', fileName: '', prompt: '' }; // Return empty values if input is not provided
     }
 
     const parts = input.split('|').map((part) => part.trim());
-    const command = parts.length > 1 ? parts[0].trim() : '';
-    const freeText = parts.length > 1 ? parts.slice(1).join('|') : input.trim();
+    const command = parts.length > 0 ? parts[0].trim() : '';
+    const fileName = parts.length > 1 ? validateFileName(parts[1].trim()) : '';
+    const prompt = parts.length > 2 ? parts.slice(2).join('|') : parts.length > 1 ? parts[1].trim() : input.trim();
 
     if (command && !["edit", "new"].includes(command.toLowerCase())) {
-        vscode.window.showErrorMessage('Invalid command. Please use "edit" or "new" as the command.');
+        vscode.window.showErrorMessage('Invalid command. Please use "edit" or " new" as the command.');
         return getUserInput(); // Recursively call getUserInput to prompt again
     }
 
-    return { command, freeText };
+    return { command, fileName, prompt };
+}
+
+function validateFileName(fileName: string): string {
+    // Define a regular expression to check for valid file name characters
+    const fileNameRegex = /^[a-zA-Z0-9_\-]+$/; // This regex allows letters, numbers, underscores, and hyphens
+
+    if (fileNameRegex.test(fileName)) {
+        return fileName;
+    } else {
+        vscode.window.showErrorMessage('Invalid file name. Please use only letters, numbers, underscores, and hyphens.');
+        return ''; // Return an empty string if the file name is invalid
+    }
+}
+
+async function saveEditorToFile(editor: vscode.TextEditor | undefined, fileName: string) {
+    if (editor) {
+        // Check if the editor has content
+        if (editor.document.getText()) {
+            // Write the editor's content to the file
+            fs.writeFileSync(fileName, editor.document.getText(), 'utf8');
+            vscode.window.showInformationMessage(`Saved content to ${fileName}`);
+        } else {
+            vscode.window.showWarningMessage('The editor is empty. Nothing to save.');
+        }
+    }
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -72,7 +99,8 @@ export function activate(context: vscode.ExtensionContext) {
 
         const userInput = await getUserInput();
         const command = userInput.command;
-        const prompt = userInput.freeText;
+        const fileName = userInput.fileName;
+        const prompt = userInput.prompt;
 
         const outputChannel = vscode.window.createOutputChannel('GGVscode Output');
         // Clear the output channel
@@ -162,6 +190,11 @@ export function activate(context: vscode.ExtensionContext) {
             insertLines(updatedEditor, gpt_content_by_lines, 0);
         }                
         
+        if (fileName) {
+            // Save the active window to the specified file
+            saveEditorToFile(vscode.window.activeTextEditor, fileName);
+        }
+
     });
 
     context.subscriptions.push(disposable);
