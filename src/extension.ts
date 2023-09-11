@@ -205,7 +205,7 @@ export function activate(context: vscode.ExtensionContext) {
             contentToBeSentOnActiveWindow = `${outputText}`
         }
 
-        // Split the content received from ChatGPT into lines
+        // Split the content received from ChatGPT   into lines
         const gpt_content_by_lines = contentToBeSentOnActiveWindow.split('\n');
 
         if (vscode.window.activeTextEditor) {        
@@ -213,16 +213,12 @@ export function activate(context: vscode.ExtensionContext) {
             insertLines(updatedEditor, gpt_content_by_lines, 0);
         }       
 
-        const fileNameMatch = fileName.match(/<([^>]+)>/);
-        outputChannel.append(`\n###\nfileNameMatch: ${fileNameMatch}\n###\n`);
-        outputChannel.show(true);
         if (!command || command.toLowerCase() === "new") {
-            if (fileNameMatch) {
-                outputChannel.append(`\n###\nsaving to file: ${fileNameMatch}\n###\n`);
+            if (validateFileName(fileName)) {
+                outputChannel.append(`\n###\nsaving to file: ${fileName}\n###\n`);
                 outputChannel.show(true);
-                const extractedFileName = fileNameMatch[1]; // Extract the file name from within the angle brackets
                 // Save the new editor with the extracted file name
-                await saveEditorToFile(updatedEditor, extractedFileName);            
+                await saveEditorToFile(updatedEditor, fileName);            
             }            
         }
     });
