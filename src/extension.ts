@@ -36,7 +36,7 @@ async function insertLines(editor: vscode.TextEditor | undefined, lines: string[
     await insertLines(editor, lines, index + 1);
 }
 
-async function getUserInput(): Promise<{ command: string, fileName: string, prompt: string }> {
+export async function getUserInput(): Promise<{ command: string, fileName: string, prompt: string }> {
     const input = await vscode.window.showInputBox({
         prompt: 'Enter your question (optional command, filename, and free text; syntax is COMMAND|<FILENAME>|FREE_TEXT, COMMAND|FREE_TEXT, <FILENAME>|FREE_TEXT, or just FREE_TEXT)',
         value: '',
@@ -46,43 +46,40 @@ async function getUserInput(): Promise<{ command: string, fileName: string, prom
         return { command: '', fileName: '', prompt: '' }; // Return empty values if input is not provided
     }
 
+    // Check for the format: COMMAND|<filename>|FREE_TEXT
+    const regex = /^(.+?)\|<(.+?)>(.+)$/; // Use regex to capture command, filename, and prompt
+
+    const match = input.match(regex);
+
+    if (match) {
+        const command = match[1].trim();
+        const fileName = match[2].trim();
+        const prompt = match[3].trim();
+        return { command, fileName, prompt };
+    }
+
+    // Check for the format: COMMAND|FREE_TEXT
     const parts = input.split('|').map((part) => part.trim());
-
-    // Check for the first format: COMMAND|<filename>|FREE_TEXT
-    if (parts.length === 3 && parts[0] && parts[1].startsWith('<') && parts[1].endsWith('>') && parts[2]) {
-        const command = parts[0];
-        const fileName = validateFileName(parts[1].slice(1, -1)); // Remove angle brackets
-        const prompt = parts[2];
-        return { command, fileName, prompt };
-    }
-
-    // Check for the second format: COMMAND|FREE_TEXT
-    if (parts.length === 2 && parts[0] && parts[1]) {
+    if (parts.length === 2) {
         const command = parts[0];
         const fileName = '';
         const prompt = parts[1];
         return { command, fileName, prompt };
     }
 
-    // Check for the third format: <filename>|FREE_TEXT
-    if (parts.length === 2 && parts[0].startsWith('<') && parts[0].endsWith('>') && parts[1]) {
-        const command = '';
-        const fileName = validateFileName(parts[0].slice(1, -1)); // Remove angle brackets
-        const prompt = parts[1];
-        return { command, fileName, prompt };
+    // Check for the format: <filename>FREE_TEXT
+    if (input.startsWith('<')) {
+        const fileNameEndIndex = input.indexOf('>');
+        if (fileNameEndIndex !== -1) {
+            const command = 'new';
+            const fileName = input.slice(1, fileNameEndIndex);
+            const prompt = input.slice(fileNameEndIndex + 1).trim();
+            return { command, fileName, prompt };
+        }
     }
 
-    // Check for the fourth format: FREE_TEXT
-    if (parts.length === 1 && parts[0]) {
-        const command = '';
-        const fileName = '';
-        const prompt = parts[0];
-        return { command, fileName, prompt };
-    }
-
-    // Default case: Invalid input
-    vscode.window.showErrorMessage('Invalid input format.');
-    return getUserInput();
+    // If none of the above formats match, treat the entire input as prompt
+    return { command: 'new', fileName: '', prompt: input };
 }
 
 function validateFileName(fileName: string): string {
@@ -214,13 +211,18 @@ export function activate(context: vscode.ExtensionContext) {
         if (vscode.window.activeTextEditor) {        
             // Send new lines one by one to the active window
             insertLines(updatedEditor, gpt_content_by_lines, 0);
-        }                
-        
-        if (fileName) {
-            // Save the active window to the specified file
-            saveEditorToFile(vscode.window.activeTextEditor, fileName);
-        }
+        }       
 
+        const fileNameMatch = fileName.match(/<([^>]+)>/);
+        if (!command || command.toLowerCase() === "new") {
+            if (fileNameMatch) {
+                outputChannel.append(`\n###\nsaving to file: ${fileNameMatch}\n###\n`);
+                outputChannel.show(true);
+                const extractedFileName = fileNameMatch[1]; // Extract the file name from within the angle brackets
+                // Save the new editor with the extracted file name
+                await saveEditorToFile(updatedEditor, extractedFileName);            
+            }            
+        }
     });
 
     context.subscriptions.push(disposable);
