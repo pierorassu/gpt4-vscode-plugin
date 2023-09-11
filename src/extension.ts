@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as openai from 'openai';
 import * as fs from 'fs';
+import * as path from 'path';
 
 export function clearActiveWindow(editor: vscode.TextEditor | undefined) {
     if (editor) {
@@ -82,23 +83,72 @@ export async function getUserInput(): Promise<{ command: string, fileName: strin
     return { command: 'new', fileName: '', prompt: input };
 }
 
-export function validateFileName(fileName: string): boolean {
+export function validateFileName(fileName: string, errorCallback?: (message: string) => void): boolean {
     // Define a regular expression to check for valid file name characters
     const fileNameRegex = /^[a-zA-Z0-9_\-\.]+$/; // This regex allows letters, numbers, underscores, hyphens, and dots
 
-    return fileNameRegex.test(fileName);
+    const isValid = fileNameRegex.test(fileName);
+
+    if (!isValid && errorCallback) {
+        errorCallback('Invalid file name. Please use only letters, numbers, underscores, hyphens, and dots.');
+    }
+
+    return isValid;
 }
 
 async function saveEditorToFile(editor: vscode.TextEditor | undefined, fileName: string) {
     if (editor) {
         // Check if the editor has content
         if (editor.document.getText()) {
-            // Write the editor's content to the file
-            fs.writeFileSync(fileName, editor.document.getText(), 'utf8');
-            vscode.window.showInformationMessage(`Saved content to ${fileName}`);
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0]; // Use the first workspace folder if available
+            let defaultUri: vscode.Uri | undefined;
+
+            if (workspaceFolder) {
+                // Construct the full path to the file within the workspace folder
+                const filePath = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, fileName));
+                defaultUri = filePath;
+            }
+
+            const options: vscode.SaveDialogOptions = {
+                defaultUri,
+                filters: {
+                    'All files': ['*'],
+                },
+            };
+
+            const uri = await vscode.window.showSaveDialog(options);
+
+            if (uri) {
+                // Write the editor's content to the selected file
+                fs.writeFileSync(uri.fsPath, editor.document.getText(), 'utf8');
+                vscode.window.showInformationMessage(`Saved content to ${uri.fsPath}`);
+            }
         } else {
             vscode.window.showWarningMessage('The editor is empty. Nothing to save.');
         }
+    }
+}
+
+async function waitForEditorContentUpdate(editor: vscode.TextEditor | undefined): Promise<void> {
+    if (!editor) {
+        return; // Return early if the editor is undefined
+    }
+
+    const document = editor.document;
+    const initialContent = document.getText();
+
+    // Define a function to check if the editor content has changed
+    function hasContentChanged(): boolean {
+        const currentContent = document.getText();
+        return currentContent !== initialContent;
+    }
+
+    // Wait for the editor content to change or a timeout (adjust the timeout as needed)
+    const timeoutMs = 5000; // Adjust this timeout as needed
+    const startTime = Date.now();
+
+    while (!hasContentChanged() && Date.now() - startTime < timeoutMs) {
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
 }
 
@@ -107,6 +157,8 @@ export function activate(context: vscode.ExtensionContext) {
     let disposable = vscode.commands.registerCommand('extension.openGGVSCodeChat', async () => {
 
         const apiKey = process.env.OPENAI_API_KEY;
+
+        const cwd = process.cwd();
 
         if (!apiKey) {
             vscode.window.showErrorMessage("OpenAI API key not found. Make sure you've set the OPENAI_API_KEY environment variable.");
@@ -208,14 +260,12 @@ export function activate(context: vscode.ExtensionContext) {
             insertLines(updatedEditor, gpt_content_by_lines, 0);
         }       
 
-        outputChannel.append(`\n###\nfileName is: ${fileName}\n###\n`);
-        outputChannel.show(true);
         if (!command || command.toLowerCase() === "new") {
-            if (validateFileName(fileName)) {
-                outputChannel.append(`\n###\nsaving to file: ${fileName}\n###\n`);
-                outputChannel.show(true);
+            if (validateFileName(fileName, vscode.window.showErrorMessage)) {
+                // Ensure the content is fully updated
+                await waitForEditorContentUpdate(updatedEditor);
                 // Save the new editor with the extracted file name
-                await saveEditorToFile(updatedEditor, fileName);            
+                await saveEditorToFile(updatedEditor, fileName);     
             }            
         }
     });
