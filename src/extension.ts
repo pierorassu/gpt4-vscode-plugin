@@ -38,7 +38,7 @@ async function insertLines(editor: vscode.TextEditor | undefined, lines: string[
 
 async function getUserInput(): Promise<{ command: string, fileName: string, prompt: string }> {
     const input = await vscode.window.showInputBox({
-        prompt: 'Enter your question (optional command, filename, and free text; syntax is COMMAND|FILENAME|FREE_TEXT, COMMAND|FREE_TEXT, FILENAME|FREE_TEXT, or just FREE_TEXT)',
+        prompt: 'Enter your question (optional command, filename, and free text; syntax is COMMAND|<FILENAME>|FREE_TEXT, COMMAND|FREE_TEXT, <FILENAME>|FREE_TEXT, or just FREE_TEXT)',
         value: '',
     });
 
@@ -47,16 +47,42 @@ async function getUserInput(): Promise<{ command: string, fileName: string, prom
     }
 
     const parts = input.split('|').map((part) => part.trim());
-    const command = parts.length > 0 ? parts[0].trim() : '';
-    const fileName = parts.length > 1 ? validateFileName(parts[1].trim()) : '';
-    const prompt = parts.length > 2 ? parts.slice(2).join('|') : parts.length > 1 ? parts[1].trim() : input.trim();
 
-    if (command && !["edit", "new"].includes(command.toLowerCase())) {
-        vscode.window.showErrorMessage('Invalid command. Please use "edit" or " new" as the command.');
-        return getUserInput(); // Recursively call getUserInput to prompt again
+    // Check for the first format: COMMAND|<filename>|FREE_TEXT
+    if (parts.length === 3 && parts[0] && parts[1].startsWith('<') && parts[1].endsWith('>') && parts[2]) {
+        const command = parts[0];
+        const fileName = validateFileName(parts[1].slice(1, -1)); // Remove angle brackets
+        const prompt = parts[2];
+        return { command, fileName, prompt };
     }
 
-    return { command, fileName, prompt };
+    // Check for the second format: COMMAND|FREE_TEXT
+    if (parts.length === 2 && parts[0] && parts[1]) {
+        const command = parts[0];
+        const fileName = '';
+        const prompt = parts[1];
+        return { command, fileName, prompt };
+    }
+
+    // Check for the third format: <filename>|FREE_TEXT
+    if (parts.length === 2 && parts[0].startsWith('<') && parts[0].endsWith('>') && parts[1]) {
+        const command = '';
+        const fileName = validateFileName(parts[0].slice(1, -1)); // Remove angle brackets
+        const prompt = parts[1];
+        return { command, fileName, prompt };
+    }
+
+    // Check for the fourth format: FREE_TEXT
+    if (parts.length === 1 && parts[0]) {
+        const command = '';
+        const fileName = '';
+        const prompt = parts[0];
+        return { command, fileName, prompt };
+    }
+
+    // Default case: Invalid input
+    vscode.window.showErrorMessage('Invalid input format.');
+    return getUserInput();
 }
 
 function validateFileName(fileName: string): string {
