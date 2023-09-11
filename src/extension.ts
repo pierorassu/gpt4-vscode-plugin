@@ -268,6 +268,15 @@ export function activate(context: vscode.ExtensionContext) {
                 await saveEditorToFile(updatedEditor, fileName);     
             }            
         }
+        // Check if the command is "edit"
+        if (command && command.toLowerCase() === 'edit') {
+            // Ensure the content is fully updated
+            await waitForEditorContentUpdate(updatedEditor);
+            // Save the changes to the existing file without user interaction if updatedEditor is defined
+            updatedEditor?.document.save();
+            vscode.window.showInformationMessage(`Saved changes to ${fileName}`);
+        }
+
     });
 
     context.subscriptions.push(disposable);
