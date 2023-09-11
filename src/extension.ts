@@ -214,6 +214,8 @@ export function activate(context: vscode.ExtensionContext) {
         }       
 
         const fileNameMatch = fileName.match(/<([^>]+)>/);
+        outputChannel.append(`\n###\nfileNameMatch: ${fileNameMatch}\n###\n`);
+        outputChannel.show(true);
         if (!command || command.toLowerCase() === "new") {
             if (fileNameMatch) {
                 outputChannel.append(`\n###\nsaving to file: ${fileNameMatch}\n###\n`);
