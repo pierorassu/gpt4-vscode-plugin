@@ -82,16 +82,11 @@ export async function getUserInput(): Promise<{ command: string, fileName: strin
     return { command: 'new', fileName: '', prompt: input };
 }
 
-function validateFileName(fileName: string): string {
+export function validateFileName(fileName: string): boolean {
     // Define a regular expression to check for valid file name characters
-    const fileNameRegex = /^[a-zA-Z0-9_\-]+$/; // This regex allows letters, numbers, underscores, and hyphens
+    const fileNameRegex = /^[a-zA-Z0-9_\-\.]+$/; // This regex allows letters, numbers, underscores, hyphens, and dots
 
-    if (fileNameRegex.test(fileName)) {
-        return fileName;
-    } else {
-        vscode.window.showErrorMessage('Invalid file name. Please use only letters, numbers, underscores, and hyphens.');
-        return ''; // Return an empty string if the file name is invalid
-    }
+    return fileNameRegex.test(fileName);
 }
 
 async function saveEditorToFile(editor: vscode.TextEditor | undefined, fileName: string) {
@@ -213,6 +208,8 @@ export function activate(context: vscode.ExtensionContext) {
             insertLines(updatedEditor, gpt_content_by_lines, 0);
         }       
 
+        outputChannel.append(`\n###\nfileName is: ${fileName}\n###\n`);
+        outputChannel.show(true);
         if (!command || command.toLowerCase() === "new") {
             if (validateFileName(fileName)) {
                 outputChannel.append(`\n###\nsaving to file: ${fileName}\n###\n`);
