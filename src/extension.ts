@@ -188,11 +188,11 @@ export function activate(context: vscode.ExtensionContext) {
         await clearActiveWindow()          
 
         const system = `
-        You are a Software Engineer and Software developer who has mastered all program languages.
+        You are a Software Engineer who has mastered all program languages.
         You like to solve coding challenges and you always try to find the best and omptimal solution for a coding question.
         You always reply with professional-grade source code.
         You always reply by providing the whole source code back, either new or updated.
-        Your code snippets are always enclosed in markdown syntax, for example for python you will enclose your code within \`\`\`python\`\`\`
+        Your code snippets are always enclosed in markdown syntax, for example for python you would enclose your code within \`\`\`python\`\`\`
         `;
 
         const prep_prompt = 'I am a software developer in Java, Rust, Python, Go and Javascript and you are a powerful AI robot that acts as a Software Engineer.'
@@ -220,13 +220,7 @@ export function activate(context: vscode.ExtensionContext) {
         });
 
         let outputText = `${completion.choices[0]?.message?.content}`
-
-        if (outputText === "[FAILURE}") {
-            vscode.window.showErrorMessage("This extension only works on Java, Rust, Python, Go and Javascript");
-            return; // Exit the command if it's a failure
-        }        
-
-        //const regex = /```(python|rust|java|go|javascript)\n([\s\S]*?)\n```/;
+      
         const regex = /```([A-Za-z]+|[Cc]\+\+|[Cc]\#)\n([\s\S]*?)\n```/;
         const match = outputText.match(regex);
 
