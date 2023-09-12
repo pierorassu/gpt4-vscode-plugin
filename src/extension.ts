@@ -3,18 +3,23 @@ import * as openai from 'openai';
 import * as fs from 'fs';
 import * as path from 'path';
 
-export function clearActiveWindow(editor: vscode.TextEditor | undefined) {
-    if (editor) {
-        const document = editor.document;
+async function clearActiveWindow() {
+    const activeEditor = vscode.window.activeTextEditor;
+
+    if (activeEditor) {
+        const document = activeEditor.document;
+        const firstLine = document.lineAt(0);
         const lastLine = document.lineAt(document.lineCount - 1);
-        const fullRange = new vscode.Range(
-            document.positionAt(0),
-            document.positionAt(document.getText().length)
+
+        const range = new vscode.Range(
+            firstLine.range.start,
+            lastLine.range.end
         );
-        const edit = new vscode.TextEdit(fullRange, '');
-        const workspaceEdit = new vscode.WorkspaceEdit();
-        workspaceEdit.set(editor.document.uri, [edit]);
-        vscode.workspace.applyEdit(workspaceEdit);
+
+        // Use the TextEditorEdit class to perform the edit
+        activeEditor.edit((editBuilder: vscode.TextEditorEdit) => {
+            editBuilder.replace(range, ''); // Replace the content with an empty string
+        });
     }
 }
 
@@ -96,39 +101,6 @@ export function validateFileName(fileName: string, errorCallback?: (message: str
     return isValid;
 }
 
-async function saveEditorToFile(editor: vscode.TextEditor | undefined, fileName: string) {
-    if (editor) {
-        // Check if the editor has content
-        if (editor.document.getText()) {
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0]; // Use the first workspace folder if available
-            let defaultUri: vscode.Uri | undefined;
-
-            if (workspaceFolder) {
-                // Construct the full path to the file within the workspace folder
-                const filePath = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, fileName));
-                defaultUri = filePath;
-            }
-
-            const options: vscode.SaveDialogOptions = {
-                defaultUri,
-                filters: {
-                    'All files': ['*'],
-                },
-            };
-
-            const uri = await vscode.window.showSaveDialog(options);
-
-            if (uri) {
-                // Write the editor's content to the selected file
-                fs.writeFileSync(uri.fsPath, editor.document.getText(), 'utf8');
-                vscode.window.showInformationMessage(`Saved content to ${uri.fsPath}`);
-            }
-        } else {
-            vscode.window.showWarningMessage('The editor is empty. Nothing to save.');
-        }
-    }
-}
-
 async function waitForEditorContentUpdate(editor: vscode.TextEditor | undefined): Promise<void> {
     if (!editor) {
         return; // Return early if the editor is undefined
@@ -149,6 +121,21 @@ async function waitForEditorContentUpdate(editor: vscode.TextEditor | undefined)
 
     while (!hasContentChanged() && Date.now() - startTime < timeoutMs) {
         await new Promise(resolve => setTimeout(resolve, 100));
+    }
+}
+
+async function createAndOpenNewFile(fileName: string) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]; // Use the first workspace folder if available
+
+    if (workspaceFolder) {
+        const filePath = path.join(workspaceFolder.uri.fsPath, fileName);
+
+        // Create an empty new file
+        fs.writeFileSync(filePath, '');
+
+        // Open the new file in the active editor
+        const document = await vscode.workspace.openTextDocument(filePath);
+        const editor = await vscode.window.showTextDocument(document);
     }
 }
 
@@ -182,23 +169,7 @@ export function activate(context: vscode.ExtensionContext) {
         let currentSourceCodeOnActiveWindow = '';
         if (editor) {
             currentSourceCodeOnActiveWindow = editor.document.getText();
-        }        
-
-        let updatedEditor = null; // Declare 'updatedEditor' with an initial value of null
-
-        // Check if the command is not passed or equal to "new"
-        if (!command || command.toLowerCase() === "new") {
-            // Create a new untitled text document
-            const untitledDocument = await vscode.workspace.openTextDocument({ content: '' });
-            await vscode.window.showTextDocument(untitledDocument);
-
-            // Get the updated active editor
-            updatedEditor = vscode.window.activeTextEditor; // Update 'updatedEditor' with the new editor
-        } else {            
-            clearActiveWindow(editor);   
-            // Get the updated active editor
-            updatedEditor = vscode.window.activeTextEditor; // Update 'updatedEditor' with the new editor
-        }
+        }               
 
         const system = `
         You are a senior Software Engineer and Software developer who has mastered Java, Rust, Python, Go, and Javascript.
@@ -216,12 +187,6 @@ export function activate(context: vscode.ExtensionContext) {
         const post_prompt = `do not use Markdown syntax and do not use Markdown Syntax Highlighting like ${syntax_to_avoid}; answer must contain only source code; your answer cannot contain explanations of any sorts; always provide full source code and not just snippets`
 
         let fullPrompt = `Initial context: ${prep_prompt}\nInstructions on your answer: ${post_prompt}\nThe question is: ${prompt}`
-        outputChannel.append("#####################");
-        outputChannel.append('\n');
-        outputChannel.append(`Full prompt: ${fullPrompt}`);
-        outputChannel.append('\n');
-        outputChannel.append("#####################")
-        outputChannel.show(true);
 
         const completion = await openaiInstance.chat.completions.create({
             model: 'gpt-4-0613',
@@ -253,29 +218,30 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // Split the content received from ChatGPT   into lines
-        const gpt_content_by_lines = contentToBeSentOnActiveWindow.split('\n');
+        const gpt_content_by_lines = contentToBeSentOnActiveWindow.split('\n');     
 
-        if (vscode.window.activeTextEditor) {        
-            // Send new lines one by one to the active window
-            insertLines(updatedEditor, gpt_content_by_lines, 0);
-        }       
-
-        if (!command || command.toLowerCase() === "new") {
+        if (command && command.toLowerCase() === "new") {
             if (validateFileName(fileName, vscode.window.showErrorMessage)) {
-                // Ensure the content is fully updated
-                await waitForEditorContentUpdate(updatedEditor);
-                // Save the new editor with the extracted file name
-                await saveEditorToFile(updatedEditor, fileName);     
-            }            
+                // Create and open the file
+                await createAndOpenNewFile(fileName);                        
+            }
         }
-        // Check if the command is "edit"
-        if (command && command.toLowerCase() === 'edit') {
+                 
+        const editorToBeSaved = vscode.window.activeTextEditor;
+
+        if (editorToBeSaved){
+
+            // Clear the active editor
+            await clearActiveWindow() 
+
+            await insertLines(editorToBeSaved, gpt_content_by_lines, 0);
+
             // Ensure the content is fully updated
-            await waitForEditorContentUpdate(updatedEditor);
-            // Save the changes to the existing file without user interaction if updatedEditor is defined
-            updatedEditor?.document.save();
-            vscode.window.showInformationMessage(`Saved changes to ${fileName}`);
-        }
+            await waitForEditorContentUpdate(editorToBeSaved);       
+
+            // Save the content to the file
+            editorToBeSaved?.document.save();
+        }        
 
     });
 
