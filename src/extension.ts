@@ -228,11 +228,12 @@ export function activate(context: vscode.ExtensionContext) {
         }
                  
         const editorToBeSaved = vscode.window.activeTextEditor;
+        // Clear the active editor
+        await clearActiveWindow() 
+        // Really making sure that the activeWindow is clear!
+        await clearActiveWindow()                 
 
         if (editorToBeSaved){
-
-            // Clear the active editor
-            await clearActiveWindow() 
 
             await insertLines(editorToBeSaved, gpt_content_by_lines, 0);
 
