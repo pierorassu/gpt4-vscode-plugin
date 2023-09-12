@@ -188,19 +188,18 @@ export function activate(context: vscode.ExtensionContext) {
         await clearActiveWindow()          
 
         const system = `
-        You are a senior Software Engineer and Software developer who has mastered Java, Rust, Python, Go, and Javascript.
-        You know everything about those languages. 
-        You know exactly how to solve all possible coding challenges using one of those languages.
+        You are a Software Engineer and Software developer who has mastered all program languages.
+        You like to solve coding challenges and you always try to find the best and omptimal solution for a coding question.
         You always reply with professional-grade source code.
-        You always reply by providing the source code.
-        You will always have an answer to any coding questions related to those languages.
+        You always reply by providing the whole source code back, either new or updated.
+        Your code snippets are always enclosed in markdown syntax, for example for python you will enclose your code within \`\`\`python\`\`\`
         `;
 
         const prep_prompt = 'I am a software developer in Java, Rust, Python, Go and Javascript and you are a powerful AI robot that acts as a Software Engineer.'
 
         const syntax_to_avoid = '```python ```rust ```go ```java ```javascript'
 
-        const post_prompt = `do not use Markdown syntax and do not use Markdown Syntax Highlighting like ${syntax_to_avoid}; answer must contain only source code; your answer cannot contain explanations of any sorts; always provide full source code and not just snippets`
+        const post_prompt = `do not use Markdown syntax and do not use Markdown Syntax Highlighting for example like ${syntax_to_avoid} and similar; answer must contain only source code; your answer cannot contain explanations of any sorts; always provide the full source code`
 
         let fullPrompt = `Initial context: ${prep_prompt}\nInstructions on your answer: ${post_prompt}\nThe question is: ${prompt}`
 
@@ -222,7 +221,13 @@ export function activate(context: vscode.ExtensionContext) {
 
         let outputText = `${completion.choices[0]?.message?.content}`
 
-        const regex = /```(python|rust|java|go|javascript)\n([\s\S]*?)\n```/;
+        if (outputText === "[FAILURE}") {
+            vscode.window.showErrorMessage("This extension only works on Java, Rust, Python, Go and Javascript");
+            return; // Exit the command if it's a failure
+        }        
+
+        //const regex = /```(python|rust|java|go|javascript)\n([\s\S]*?)\n```/;
+        const regex = /```([A-Za-z]+|[Cc]\+\+|[Cc]\#)\n([\s\S]*?)\n```/;
         const match = outputText.match(regex);
 
         let contentToBeSentOnActiveWindow = '';
