@@ -169,7 +169,20 @@ export function activate(context: vscode.ExtensionContext) {
         let currentSourceCodeOnActiveWindow = '';
         if (editor) {
             currentSourceCodeOnActiveWindow = editor.document.getText();
-        }               
+        }      
+        
+        if (command && command.toLowerCase() === "new") {
+            if (validateFileName(fileName, vscode.window.showErrorMessage)) {
+                // Create and open the file
+                await createAndOpenNewFile(fileName);                        
+            }
+        }
+                 
+        const editorToBeSaved = vscode.window.activeTextEditor;
+        // Clear the active editor
+        await clearActiveWindow() 
+        // Really making sure that the activeWindow is clear!
+        await clearActiveWindow()          
 
         const system = `
         You are a senior Software Engineer and Software developer who has mastered Java, Rust, Python, Go, and Javascript.
@@ -218,20 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // Split the content received from ChatGPT   into lines
-        const gpt_content_by_lines = contentToBeSentOnActiveWindow.split('\n');     
-
-        if (command && command.toLowerCase() === "new") {
-            if (validateFileName(fileName, vscode.window.showErrorMessage)) {
-                // Create and open the file
-                await createAndOpenNewFile(fileName);                        
-            }
-        }
-                 
-        const editorToBeSaved = vscode.window.activeTextEditor;
-        // Clear the active editor
-        await clearActiveWindow() 
-        // Really making sure that the activeWindow is clear!
-        await clearActiveWindow()                 
+        const gpt_content_by_lines = contentToBeSentOnActiveWindow.split('\n');                    
 
         if (editorToBeSaved){
 
