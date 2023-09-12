@@ -3,6 +3,7 @@ import * as openai from 'openai';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Function to clear the content of the active editor
 async function clearActiveWindow() {
     const activeEditor = vscode.window.activeTextEditor;
 
@@ -23,6 +24,7 @@ async function clearActiveWindow() {
     }
 }
 
+// Function to insert lines into the active editor
 async function insertLines(editor: vscode.TextEditor | undefined, lines: string[], index: number) {
     if (!editor || index >= lines.length) {
         return;
@@ -42,6 +44,7 @@ async function insertLines(editor: vscode.TextEditor | undefined, lines: string[
     await insertLines(editor, lines, index + 1);
 }
 
+// Function to get user input for command, file name, and prompt
 export async function getUserInput(): Promise<{ command: string, fileName: string, prompt: string }> {
     const input = await vscode.window.showInputBox({
         prompt: 'Enter your question (optional command, filename, and free text; syntax is COMMAND|<FILENAME>|FREE_TEXT, COMMAND|FREE_TEXT, <FILENAME>|FREE_TEXT, or just FREE_TEXT)',
@@ -52,9 +55,8 @@ export async function getUserInput(): Promise<{ command: string, fileName: strin
         return { command: '', fileName: '', prompt: '' }; // Return empty values if input is not provided
     }
 
-    // Check for the format: COMMAND|<filename>|FREE_TEXT
-    const regex = /^(.+?)\|<(.+?)>(.+)$/; // Use regex to capture command, filename, and prompt
-
+    // Check for various input formats and extract command, filename, and prompt
+    const regex = /^(.+?)\|<(.+?)>(.+)$/; // Command|<filename>FREE_TEXT
     const match = input.match(regex);
 
     if (match) {
@@ -64,8 +66,7 @@ export async function getUserInput(): Promise<{ command: string, fileName: strin
         return { command, fileName, prompt };
     }
 
-    // Check for the format: COMMAND|FREE_TEXT
-    const parts = input.split('|').map((part) => part.trim());
+    const parts = input.split('|').map((part) => part.trim()); // Command|FREE_TEXT
     if (parts.length === 2) {
         const command = parts[0];
         const fileName = '';
@@ -73,8 +74,7 @@ export async function getUserInput(): Promise<{ command: string, fileName: strin
         return { command, fileName, prompt };
     }
 
-    // Check for the format: <filename>FREE_TEXT
-    if (input.startsWith('<')) {
+    if (input.startsWith('<')) { // <filename>FREE_TEXT
         const fileNameEndIndex = input.indexOf('>');
         if (fileNameEndIndex !== -1) {
             const command = 'new';
@@ -88,6 +88,7 @@ export async function getUserInput(): Promise<{ command: string, fileName: strin
     return { command: 'new', fileName: '', prompt: input };
 }
 
+// Function to validate a file name
 export function validateFileName(fileName: string, errorCallback?: (message: string) => void): boolean {
     // Define a regular expression to check for valid file name characters
     const fileNameRegex = /^[a-zA-Z0-9_\-\.]+$/; // This regex allows letters, numbers, underscores, hyphens, and dots
@@ -101,6 +102,7 @@ export function validateFileName(fileName: string, errorCallback?: (message: str
     return isValid;
 }
 
+// Function to wait for the content of the active editor to change
 async function waitForEditorContentUpdate(editor: vscode.TextEditor | undefined): Promise<void> {
     if (!editor) {
         return; // Return early if the editor is undefined
@@ -124,6 +126,7 @@ async function waitForEditorContentUpdate(editor: vscode.TextEditor | undefined)
     }
 }
 
+// Function to create and open a new file in VSCode
 async function createAndOpenNewFile(fileName: string) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]; // Use the first workspace folder if available
 
